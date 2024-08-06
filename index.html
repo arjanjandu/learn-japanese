@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Japanese Kana Learning App</title>
+    <style>
+        body { font-family: Arial, sans-serif; text-align: center; max-width: 800px; margin: 0 auto; padding: 20px; }
+        #kana { font-size: 72px; margin: 20px 0; }
+        input { font-size: 18px; padding: 5px; }
+        button { font-size: 18px; padding: 5px 10px; margin: 5px; }
+        #timer { font-size: 24px; font-weight: bold; margin: 20px 0; }
+        .kana-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 10px; margin-top: 20px; }
+        .kana-item { border: 1px solid #ddd; padding: 10px; }
+        .mode-buttons { margin-bottom: 20px; }
+    </style>
+</head>
+<body>
+    <h1>Japanese Kana Learning App</h1>
+    <div class="mode-buttons">
+        <button onclick="showLearnMode('hiragana')">Learn Hiragana</button>
+        <button onclick="showLearnMode('katakana')">Learn Katakana</button>
+        <button onclick="showTestMode()">Test Mode</button>
+    </div>
+    <div id="learn-mode" style="display: none;">
+        <h2 id="learn-title"></h2>
+        <div id="kana-grid" class="kana-grid"></div>
+    </div>
+    <div id="test-mode" style="display: none;">
+        <div id="timer">Time: 0s</div>
+        <div id="kana"></div>
+        <input type="text" id="answer" placeholder="Enter romanized kana">
+        <button onclick="checkAnswer()">Submit</button>
+        <p id="result"></p>
+        <p id="score"></p>
+        <button onclick="startTest('hiragana')">Start Hiragana Test</button>
+        <button onclick="startTest('katakana')">Start Katakana Test</button>
+        <button onclick="startTest('both')">Start Combined Test</button>
+    </div>
+
+    <script>
+        let kanaList = [];
+        let currentKana = '';
+        let startTime;
+        let timerInterval;
+        let correctCount = 0;
+        let totalCount = 0;
+        let currentMode = '';
+
+        async function fetchKana() {
+            const response = await fetch('http://127.0.0.1:5000/get_kana');
+            const data = await response.json();
+            return data;
+        }
+
+        function showLearnMode(type) {
+            document.getElementById('learn-mode').style.display = 'block';
+            document.getElementById('test-mode').style.display = 'none';
+            document.getElementById('learn-title').textContent = `Learn ${type.charAt(0).toUpperCase() + type.slice(1)}`;
+            displayKanaGrid(type);
+        }
+
+        function showTestMode() {
+            document.getElementById('learn-mode').style.display = 'none';
+            document.getElementById('test-mode').style.display = 'block';
+            document.getElementById('kana').textContent = "Select a test to begin";
+        }
+
+        async function displayKanaGrid(type) {
+            const kanaData = await fetchKana();
+            const grid = document.getElementById('kana-grid');
+            grid.innerHTML = '';
+            const kanaItems = kanaData[type];
+            kanaItems.forEach(([kana, romaji]) => {
+                const div = document.createElement('div');
+                div.className = 'kana-item';
+                div.textContent = `${kana} - ${romaji}`;
+                grid.appendChild(div);
+            });
+        }
+
+        async function startTest(type) {
+            const kanaData = await fetchKana();
+            currentMode = type;
+            kanaList = type === 'both' 
+                ? [...kanaData.hiragana, ...kanaData.katakana]
+                : kanaData[type];
+            correctCount = 0;
+            totalCount = kanaList.length;
+            document.getElementById('result').textContent = '';
+            document.getElementById('score').textContent = `Score: 0/${totalCount}`;
+            nextKana();
+            startTimer();
+        }
+
+        function nextKana() {
+            if (kanaList.length === 0) {
+                endTest();
+                return;
+            }
+            const index = Math.floor(Math.random() * kanaList.length);
+            [currentKana] = kanaList.splice(index, 1);
+            document.getElementById('kana').textContent = currentKana[0];
+            document.getElementById('answer').value = '';
+            document.getElementById('answer').focus();
+        }
+
+        async function checkAnswer() {
+            const answer = document.getElementById('answer').value;
+            const response = await fetch('http://127.0.0.1:5000/check_answer', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ 
+                    answer, 
+                    kana: currentKana[0], 
+                    type: currentMode === 'both' 
+                        ? (currentKana[0] in hiragana ? 'hiragana' : 'katakana')
+                        : currentMode
+                })
+            });
+            const result = await response.json();
+            if (result.correct) {
+                correctCount++;
+                document.getElementById('result').textContent = 'Correct!';
+                document.getElementById('score').textContent = `Score: ${correctCount}/${totalCount}`;
+                nextKana();
+            } else {
+                document.getElementById('result').textContent = `Incorrect. The correct answer is ${result.correct_answer}.`;
+            }
+        }
+
+        function startTimer() {
+            startTime = Date.now();
+            updateTimer();
+            timerInterval = setInterval(updateTimer, 1000);
+        }
+
+        function updateTimer() {
+            const elapsedTime = Math.floor((Date.now() - startTime) / 1000);
+            document.getElementById('timer').textContent = `Time: ${elapsedTime}s`;
+        }
+
+        function endTest() {
+            clearInterval(timerInterval);
+            const elapsedTime = Math.floor((Date.now() - startTime) / 1000);
+            document.getElementById('timer').textContent = `Test completed in ${elapsedTime} seconds`;
+            document.getElementById('kana').textContent = "Test finished!";
+            document.getElementById('score').textContent = `Final Score: ${correctCount}/${totalCount}`;
+        }
+
+        // Add event listener for Enter key
+        document.getElementById('answer').addEventListener('keypress', function(event) {
+            if (event.key === 'Enter') {
+                checkAnswer();
+            }
+        });
+
+        showLearnMode('hiragana'); // Start with hiragana learning mode
+    </script>
+</body>
+</html>
