@@ -2,6 +2,7 @@ from flask import Flask, jsonify, request, send_file
 from flask_cors import CORS
 import random
 import time
+import os
 
 app = Flask(__name__)
 CORS(app)
@@ -66,5 +67,7 @@ def end_timer():
     duration = end_time - start_time
     return jsonify({'duration': duration})
 
-if __name__ == '__main__':
-    app.run(debug=True)
+
+if __name__ == "__main__":
+    port = int(os.environ.get("PORT", 5001))
+    app.run(host='0.0.0.0', port=port)

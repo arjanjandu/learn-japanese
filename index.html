@@ -48,7 +48,7 @@
         let currentMode = '';
 
         async function fetchKana() {
-            const response = await fetch('http://127.0.0.1:5000/get_kana');
+            const response = await fetch('/get_kana');  // Use relative path
             const data = await response.json();
             return data;
         }
@@ -107,7 +107,7 @@
 
         async function checkAnswer() {
             const answer = document.getElementById('answer').value;
-            const response = await fetch('http://127.0.0.1:5000/check_answer', {
+            const response = await fetch('/check_answer', {  // Use relative path
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ 
